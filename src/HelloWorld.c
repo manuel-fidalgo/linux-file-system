@@ -7,7 +7,7 @@
 #include <asm/uaccess.h>     /* copy_to_user */
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Angel Manuel Guerrero Higueras");
+MODULE_AUTHOR("Manuel Fidalgo Fierro");
 
 static int __init init_hello(void)
 {
