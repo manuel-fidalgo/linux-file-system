@@ -7,6 +7,8 @@
 #include <asm/uaccess.h>     /* copy_to_user */
 
 #define NAME "assoofs"
+#define DEF_PER_FILE 0644
+#define DEF_PER_DIR
 
 /**
 funciones que empieizen pir assofs hay que implenetarlo nosotros
@@ -15,11 +17,12 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Manuel Fidalgo Fierro");
 
 /**
-hay que defnir un superbloque inicializarlo y configurarlo
+ Hay que defnir un superbloque inicializarlo y configurarlo
 */
 
 /*Pertenceinte a la libreria fs.h*/
 static struct file_system_type assoofs_type = {
+
 	.owner = THIS_MODULE,
 	.name = "assoofs",
 	.mount = assoofs_get_super, //fuinioc que se llama al monstar
@@ -29,13 +32,28 @@ static struct file_system_type assoofs_type = {
 
 /*estructura de las tareas que soporta el sistema*/
 static struct super_operations assoofs_s_ops = {
+
 	.statfs = simple_statfs,
 	.drop_inode = generic_delete_inode,
+
 };
+
+/*Struct que define las operaciones sobre un fichero*/
+static struct file_operations assoofs_file_ops = {
+
+	.open = assoofs_open,
+	.read = assofs_read_file,
+	.write = assoofs_write_file,
+
+};
+
+
+
 /*funcion que se llama al crear el superbloque*/
 static struct dentry * assoofs_get_super(struct file_system_type * fst, int flags, const char *devname, void *data){
 	return mount_bdev(fts,flags,devname,data,assoofs_fill_super);
 }
+
 /*llena el superbloque que se le pasa como puntero super_block*/
 static int assoofs_fill_super(struct super_block *sb, void * data, int silent){
 
@@ -67,23 +85,30 @@ static struct dentry  assoofs_create_file(struct super_block *sb, struct dentry 
 	dentry = d_alloc(dir, &qname);
 
 	//if(!dentry) goto out;
-	inode = assofs_make_inode(sb, S_IFREG | 0644);//flag que indica el tipo y los permisos por defecto, 
+	inode = assofs_make_inode(sb, S_IFREG | DEF_PER_FILE );//flag que indica el tipo y los permisos por defecto, 
 	//if(!inode) goto out_dput;
 	inode->i_fop = &assofs_file_ops; //Operaciones que va a soportar
 	inode-> i_private = counter; // campo donde se le asgina el contador, solo apra kernel 3.0 o superior cuidado con la informacion
 	d_add(dentry,inode); //añadimos la estructura dentry y el dentry,ufs capa intermedia que abstrae(clase abstracta que luego referecnia a una clase real)
 	return dentry; //devolvemos el struct dentry;
 }
+/*para la creacion de directorios*/
+static struct dentry assoofs_create_directory(struct super_block *sb, struct dentry *dir, const char * name, atomic_t * counter){
+	
+}
+
 /*funcion ara crear inodo*/
 //declaramos el nuevo inode e iniciamlizamos los valores
-static struct inode ∗ assoofsmakeinode(structsuperblock∗sb,intmode){
-	structinode ∗ ret = newinode(sb);
+static struct inode * assoofsmakeinode(struct superblock * sb, int mode){
+	
+	struct inode * ret; 
+	ret = new_inode(sb);
+
 	if(ret){
-		ret−>imode=mode;
-		ret−>iuid.val=ret−>igid.val=0;
-		ret−>iblocks=0;
-		ret−>iatime=ret−>imtime=ret−>ictime=
-		CURRENTTIME;
+		ret−>imode = mode;
+		ret−>iuid.val = ret−>igid.val = 0;
+		ret−>iblocks = 0;
+		ret−>i_atime = ret−>i_mtime = ret−>i_ctime = CURRENT_TIME;
 	}
 	return ret;
 }
@@ -93,7 +118,44 @@ static struct inode ∗ assoofsmakeinode(structsuperblock∗sb,intmode){
 
 
 static int assoofs_open(struct inode * inode, struct file *flip){
-	flip->private_data
+	flip->private_data = inode->i_private;
+	return 0;
+}
+/*letura de un fichero*/
+static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_t * offset){
+	atomic_t v;
+	int len;
+	v = atomic_read(counter);
+	if(*offset>0) 
+		v-= 1;
+	else
+		atomic_inc(counter);
+
+	len = snprintf(tmp,TMPSIZE,"%d\n",v);
+
+	if(*offset > len)
+		return 0;
+	
+	if(count>len-*offset)
+		count = len - *offset;
+	
+	if(copy_to_user(buf,tmp + *offset, count))
+		return -EFAULT;
+
+	*offset += count;
+	return count;
+}
+/*escritura de un fichero*/
+static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t count,loff_t * offset){
+	atomic_t * counter;
+
+	counter = (atomic_t *) flip->private_data;
+	/* */
+	memset(tmp,0,TMPSIZE);
+	if(copy_from_user(tmp,buf,count))
+		return -EFAULT;
+	atomic_set(counter, simple_strol(tmp,NULL,10));
+	return count;
 }
 
 
