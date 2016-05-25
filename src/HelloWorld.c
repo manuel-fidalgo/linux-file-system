@@ -7,8 +7,9 @@
 #include <asm/uaccess.h>     /* copy_to_user */
 
 #define NAME "assoofs"
+#define LFS_MAGIC 0x19980122 //Necesarry or include in the library
 #define DEF_PER_FILE 0644
-#define DEF_PER_DIR
+#define DEF_PER_DIR 0644
 
 /**
 funciones que empieizen pir assofs hay que implenetarlo nosotros
@@ -62,8 +63,6 @@ static struct file_operations assoofs_file_ops = {
 
 };
 
-
-
 /*Funcion que se llama al crear el superbloque*/
 static struct dentry * assoofs_get_super(struct file_system_type * fst, int flags, const char *devname, void *data){
 	return mount_bdev(fts,flags,devname,data,assoofs_fill_super);
@@ -113,7 +112,54 @@ static struct dentry  assoofs_create_file(struct super_block *sb, struct dentry 
 /*Para la creacion de directorios*/
 static struct dentry assoofs_create_directory(struct super_block *sb, struct dentry *dir, const char * name, atomic_t * counter){
 
+	struct dentry *dentry;
+	struct inode * inode;
+	struct qsrt qname;
+
+	qname.name = name;
+	qname.len = strlen(name);
+	qname.hash = full_name_hash(name, qname.len);
+
+	dentry = d_alloc(parent, &qname);
+
+	inode = lfs_make_inode(sb, S_IFDIR | DEF_PER_DIR);
+	inode->i_fop = &assofs_file_ops; 
+	inode-> i_private = counter; //El directorio tambin tiene que tener el contador??
+
+	d_add(dentry,inode);
+	return dentry;
+
 }
+
+/*para la creacion de directorios, adaptar al metodo que tenemos nosotros*/
+/*
+static struct dentry  lfs_create_dir(struct super_block *sb,struct dentry *parent, const char *name){
+	struct dentry *dentry;
+	struct inode *inode;
+	struct qstr qname;
+
+	qname.name = name;
+	qname.len = strlen (name);
+	qname.hash = full_name_hash(name, qname.len);
+	dentry = d_alloc(parent, &qname);
+	if (! dentry)
+		goto out;
+
+	inode = lfs_make_inode(sb, S_IFDIR | 0644);
+	if (! inode)
+		goto out_dput;
+	inode->i_op = &simple_dir_inode_operations;
+	inode->i_fop = &simple_dir_operations;
+
+	d_add(dentry, inode);
+	return dentry;
+
+  out_dput:
+	dput(dentry);
+  out:
+	return 0;
+}
+*/
 
 /*funcion ara crear inodo, declaramos el nuevo inode e iniciamlizamos los valores*/
 static struct inode * assoofsmakeinode(struct superblock * sb, int mode){
