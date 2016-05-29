@@ -16,6 +16,7 @@
 
 #define OK 0
 #define ERROR -1
+#define DEBUG 1
 
 /**
 funciones que empieizen pir assofs hay que implenetarlo nosotros
@@ -31,9 +32,9 @@ static atomic_t counter, counter_2;
  static struct dentry * assoofs_get_super(struct file_system_type * fst, int flags, const char *devname, void *data);
  static int assoofs_fill_super(struct super_block *sb, void * data, int silent);
 
- static void assoofs_create_files(struct super_block *sb, struct dentry * root);
+ static int assoofs_create_files(struct super_block *sb, struct dentry * root);
  static struct dentry  assoofs_create_file(struct super_block *sb, struct dentry *dir, const char * name, atomic_t * counter);
- static struct dentry  assoofs_create_directory(struct super_block *sb, struct dentry *dir, const char * name, atomic_t * counter);
+ static struct dentry  assoofs_create_directory(struct super_block *sb, struct dentry *dir, const char * name);
 
  static struct inode * assoofs_make_inode(struct super_block * sb, int mode);
 
@@ -41,6 +42,7 @@ static atomic_t counter, counter_2;
  static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_t * offset);
  static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t count,loff_t * offset);
 
+static void debg(int id);
 /*/HEADERS*/
 
 /*STRUCTS*/
@@ -89,14 +91,20 @@ static int assoofs_fill_super(struct super_block *sb, void * data, int silent){
 }
 
 /*Creara los ficheros y las carpetas que se crean en el programa*/
-static void assoofs_create_files(struct super_block *sb, struct dentry * root){
+static int assoofs_create_files(struct super_block *sb, struct dentry * root){
 	
 	atomic_set(&counter,0); //inicializa el contador a cero
-	assoofs_create_file(sb,root,"counter",&counter); // crear un contador para cada fichero por separado
+	assoofs_create_file(sb,root,"counter_1",&counter); // crear un contador para cada fichero por separado
 
 
 	atomic_set(&counter_2,0); //inicializa el contador a cero
-	assoofs_create_file(sb,root,"counter",&counter_2);
+	assoofs_create_file(sb,root,"counter_2",&counter_2);
+
+	assoofs_create_directory(sb,root,"directory_0");
+
+	debg(0);
+
+	return OK;
 }
 
 /*Crea un solo fichero, toma el superblo y se usa una estructura dentry(Entrad al directorio o algo asi) del dorecori cdonce lo queramos crear*/
@@ -117,11 +125,12 @@ static struct dentry  assoofs_create_file(struct super_block *sb, struct dentry 
 	inode-> i_private = counter; // campo donde se le asgina el contador, solo apra kernel 3.0 o superior cuidado con la informacion
 	
 	d_add(dentry,inode); //añadimos la estructura dentry y el dentry,ufs capa intermedia que abstrae(clase abstracta que luego referecnia a una clase real)
+	debg(1);
 	return *dentry; //devolvemos el struct dentry;
 }
 
 /*Para la creacion de directorios*/
-static struct dentry assoofs_create_directory(struct super_block *sb, struct dentry *dir, const char * name, atomic_t * counter){
+static struct dentry assoofs_create_directory(struct super_block *sb, struct dentry *dir, const char * name){
 
 	struct dentry * dentry;
 	struct inode * inode;
@@ -136,9 +145,10 @@ static struct dentry assoofs_create_directory(struct super_block *sb, struct den
 	inode = assoofs_make_inode(sb, S_IFDIR | DEF_PER_DIR);
 
 	inode->i_fop = &assoofs_file_ops; 
-	inode-> i_private = counter; //El directorio tambin tiene que tener el contador??
+	//inode-> i_private = counter; //El directorio tambin tiene que tener el contador??
 
 	d_add(dentry,inode);
+	debg(2);
 	return *dentry;
 }
 
@@ -179,7 +189,7 @@ static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_
 		len = snprintf(tmp,TMPSIZE,"%d\n",v);
 
 		if(*offset > len)
-			return 0;
+			return OK;
 
 		if(count>len -* offset)
 			count = len - *offset;
@@ -211,17 +221,23 @@ static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_
 		return count;
 	}
 
-	static int __init assoofs_init(void){in
-		printk(KERN_INFO "insertado modulo asssofs \n");
-    return register_filesystem(&assoofs_type); //toma como argumento la direcion de memroria de una estructura
-
+static int __init assoofs_init(void){
+	
+	printk(KERN_INFO "insertado modulo asssofs \n");
+    return register_filesystem(&assoofs_type); /*Direcion de memoria de una estructura*/
 }
 
 static void __exit cleanup_assoofs(void){
 
-	printk(KERN_INFO "extraido modulo asssofs\n");
+	printk(KERN_INFO "extraido modulo asssofs \n");
 
 }
+static void debg(int id){
+	if(id==0) printk(KERN_INFO "llamada a creaion de ficheros\n");
+	if(id==1) printk(KERN_INFO "llamada a creacion de fichero\n");
+	if(id==2) printk(KERN_INFO "llamada a cracion de directorio\n");
+}
+
 
 module_init(assoofs_init);
 module_exit(cleanup_assoofs);
