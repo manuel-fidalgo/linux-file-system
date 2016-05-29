@@ -1,0 +1,1 @@
+cmd_/home/manuel/sistemaficheros/hello/helloWorldModule.ko := ld -r -m elf_x86_64 -T ./scripts/module-common.lds --build-id  -o /home/manuel/sistemaficheros/hello/helloWorldModule.ko /home/manuel/sistemaficheros/hello/helloWorldModule.o /home/manuel/sistemaficheros/hello/helloWorldModule.mod.o
