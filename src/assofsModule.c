@@ -35,7 +35,7 @@ static atomic_t counter, counter_2;
  static struct dentry  assoofs_create_file(struct super_block *sb, struct dentry *dir, const char * name, atomic_t * counter);
  static struct dentry  assoofs_create_directory(struct super_block *sb, struct dentry *dir, const char * name, atomic_t * counter);
 
- static struct inode * assoofs_make_inode(struct superblock * sb, int mode);
+ static struct inode * assoofs_make_inode(struct super_block * sb, int mode);
 
  static int assoofs_open(struct inode * inode, struct file *flip);
  static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_t * offset);
@@ -48,7 +48,7 @@ static atomic_t counter, counter_2;
  static struct file_system_type assoofs_type = {
 
  	.owner = THIS_MODULE,
- 	.name = "assoofs",
+ 	.name = NAME,
 	.mount = assoofs_get_super, //fuinioc que se llama al monstar
 	.kill_sb = kill_litter_super, //fucnion que se llama al demontar
 	
@@ -103,13 +103,13 @@ static void assoofs_create_files(struct super_block *sb, struct dentry * root){
 static struct dentry  assoofs_create_file(struct super_block *sb, struct dentry *dir, const char * name, atomic_t * counter){
 	struct dentry * dentry;
 	struct inode * inode;
-	struct qstr * qname;
+	struct qstr qname;
 
-	qname->name = name;
-	qname->len = strlen(name);
-	qname->hash = full_name_hash(name, qname.len);
+	qname.name = name;
+	qname.len = strlen(name);
+	qname.hash = full_name_hash(name, qname.len);
 
-	dentry = d_alloc(dir, &name);
+	dentry = d_alloc(dir, &qname);
 
 	inode = assoofs_make_inode(sb, S_IFREG | DEF_PER_FILE );//flag que indica el tipo y los permisos por defecto, 
 	
@@ -125,15 +125,16 @@ static struct dentry assoofs_create_directory(struct super_block *sb, struct den
 
 	struct dentry * dentry;
 	struct inode * inode;
-	struct qsrt * qname;
+	struct qstr qname;
 
-	qname->name = name;
-	qname->len = strlen(name);
-	qname->hash = full_name_hash(name, qname.len);
+	qname.name = name;
+	qname.len = strlen(name);
+	qname.hash = full_name_hash(name, qname.len);
 
-	dentry = d_alloc(dir, qname);
+	dentry = d_alloc(dir, &qname);
 
 	inode = assoofs_make_inode(sb, S_IFDIR | DEF_PER_DIR);
+
 	inode->i_fop = &assoofs_file_ops; 
 	inode-> i_private = counter; //El directorio tambin tiene que tener el contador??
 
@@ -142,18 +143,15 @@ static struct dentry assoofs_create_directory(struct super_block *sb, struct den
 }
 
 /*Funcion ara crear inodo, declaramos el nuevo inode e iniciamlizamos los valores*/
-static struct inode * assoofs_make_inode(struct superblock * sb, int mode){
-	
+static struct inode * assoofs_make_inode(struct super_block * sb, int mode){
 	struct inode * ret;
-
 	ret = new_inode(sb);
-
 	if(ret){
-		ret−>i_mode = mode;
-		ret−>i_uid.val = ret−>i_gid.val = 0;
-		ret->bloksize = PAGE_CACHE_SIZE; /*No esta en el pdf*/
-		ret−>i_blocks = 0;
-		ret−>i_atime = ret−>i_mtime = ret−>i_ctime = CURRENT_TIME;
+		ret-> i_mode = mode;
+		ret->i_uid.val = ret->i_gid.val = 0;
+		//ret->blksize = PAGE_CACHE_SIZE; /*No esta en el pdf*/
+		ret-> i_blocks = 0;
+		ret-> i_atime = ret->i_mtime = ret->i_ctime = CURRENT_TIME;
 	}
 	return ret;
 }
@@ -165,65 +163,65 @@ static int assoofs_open(struct inode * inode, struct file *flip){
 
 /*Letura de un fichero*/
 static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_t * offset){
-	atomic_t v;
-	int len;
-
-	v = atomic_read(counter);
-
-	if(*offset>0)
-		v-= 1; /*valor que se devolvera si el offset es cero*/
-	else
-		atomic_inc(counter);
-
-	len = snprintf(tmp,TMPSIZE,"%d\n",v);
-
-	if(*offset > len)
-		return 0;
-
-	if(count>len -* offset)
-		count = len - *offset;
-
-	if(copy_to_user(buf,tmp + *offset, count))
-		return -EFAULT;
-
-	*offset += count;
-	return count;
-}
-
-/*Escritura de un fichero*/
-static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t count,loff_t * offset){
+	
 	atomic_t * counter;
-
-	counter = (atomic_t *) flip->private_data;
+	int len, v;
 	char tmp[TMPSIZE];
 
-	/* */
-	if(*offset!=0)
-		return -EINVAL;
+	counter = (atomic_t *) flip->private_data;
+	v = atomic_read(counter);
+	
+	if(*offset>0)
+		v-= 1; /*valor que se devolvera si el offset es cero*/
+		else
+			atomic_inc(counter);
 
-	if(count >= TMPSIZE)
-		return -EINVAL;
+		len = snprintf(tmp,TMPSIZE,"%d\n",v);
 
-	memset(tmp,0,TMPSIZE);
+		if(*offset > len)
+			return 0;
 
-	if(copy_from_user(tmp,buf,count))
-		return -EFAULT;
-	atomic_set(counter, simple_strol(tmp,NULL,10));
-	return count;
-}
+		if(count>len -* offset)
+			count = len - *offset;
 
-static int __init assoofs_init(void){
+		if(copy_to_user(buf,tmp + *offset, count))
+			return -EFAULT;
 
-	printk(KERN_INFO "Init \n");
+		*offset += count;
+		return count;
+	}
+
+/*Escritura de un fichero*/
+	static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t count,loff_t * offset){
+		atomic_t * counter;
+		char tmp[TMPSIZE];
+
+		counter = (atomic_t *) flip->private_data;
+
+		if(*offset!=0)
+			return -EINVAL;
+		if(count >= TMPSIZE)
+			return -EINVAL;
+
+		memset(tmp,0,TMPSIZE);
+
+		if(copy_from_user(tmp,buf,count))
+			return -EFAULT;
+		atomic_set(counter, simple_strtol(tmp,NULL,10));
+		return count;
+	}
+
+	static int __init assoofs_init(void){in
+		printk(KERN_INFO "insertado modulo asssofs \n");
     return register_filesystem(&assoofs_type); //toma como argumento la direcion de memroria de una estructura
 
 }
 
-static void __exit cleanup_hello(void){
+static void __exit cleanup_assoofs(void){
 
-	printk(KERN_INFO "End\n");
+	printk(KERN_INFO "extraido modulo asssofs\n");
 
 }
 
-module_init(init_hello);
-module_exit(cleanup_hello);
+module_init(assoofs_init);
+module_exit(cleanup_assoofs);

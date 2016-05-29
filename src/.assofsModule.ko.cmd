@@ -1,0 +1,1 @@
+cmd_/home/manuel/sistemaficheros/src/assofsModule.ko := ld -r -m elf_x86_64 -T ./scripts/module-common.lds --build-id  -o /home/manuel/sistemaficheros/src/assofsModule.ko /home/manuel/sistemaficheros/src/assofsModule.o /home/manuel/sistemaficheros/src/assofsModule.mod.o
