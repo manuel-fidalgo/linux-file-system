@@ -12,7 +12,7 @@
 #define TMPSIZE 20
 
 #define DEF_PER_FILE 0644
-#define DEF_PER_DIR 0644
+#define DEF_PER_DIR 0755
 
 #define OK 0
 #define ERROR -1
@@ -29,6 +29,7 @@ static atomic_t counter_1, counter_2;
  Hay que defnir un superbloque inicializarlo y configurarlo
 */
  /*HEADERS*/
+ /**/
  static struct dentry * assoofs_get_super(struct file_system_type * fst, int flags, const char *devname, void *data);
  static int assoofs_fill_super(struct super_block *sb, void * data, int silent);
 
@@ -95,7 +96,7 @@ static int assoofs_fill_super(struct super_block *sb, void * data, int silent){
 	sb->s_magic = LFS_MAGIC; //Numero magico
 	sb->s_op = &assoofs_s_ops; //definimos la estructura con todas las operaciones que soporte el sistema de ficheros/*crear el root haciendo que el campo root del superbloque*///lalamas a la funcion create files pasandole el puntero raiz y el superbloque
 	
-	root_inode = assoofs_make_inode(sb,S_IFDIR | 0755);
+	root_inode = assoofs_make_inode(sb,S_IFDIR | DEF_PER_DIR );
 
 	root_inode->i_op = &simple_dir_inode_operations;
 	root_inode->i_fop = &simple_dir_operations;
@@ -161,14 +162,14 @@ static struct dentry * assoofs_create_directory(struct super_block *sb, struct d
 	qname.hash = full_name_hash(name, qname.len);
 
 	dentry = d_alloc(dir, &qname);
-
 		
 	inode = assoofs_make_inode(sb, S_IFDIR | DEF_PER_DIR);
 
 	inode->i_op = &simple_dir_inode_operations;
-	inode->i_fop = &assoofs_file_ops; 
+	inode->i_fop = &simple_dir_operations; 
 
 	d_add(dentry,inode);
+	
 	debg(2);
 	return dentry;
 }
