@@ -23,7 +23,7 @@ funciones que empieizen pir assofs hay que implenetarlo nosotros
 */
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Manuel Fidalgo Fierro");
-static atomic_t counter, counter_2;
+static atomic_t counter_1, counter_2;
 
 /**
  Hay que defnir un superbloque inicializarlo y configurarlo
@@ -34,7 +34,7 @@ static atomic_t counter, counter_2;
 
  static int assoofs_create_files(struct super_block *sb, struct dentry * root);
  static struct dentry  assoofs_create_file(struct super_block *sb, struct dentry *dir, const char * name, atomic_t * counter);
- static struct dentry  assoofs_create_directory(struct super_block *sb, struct dentry *dir, const char * name);
+ static struct dentry  * assoofs_create_directory(struct super_block *sb, struct dentry *dir, const char * name);
 
  static struct inode * assoofs_make_inode(struct super_block * sb, int mode);
 
@@ -42,7 +42,7 @@ static atomic_t counter, counter_2;
  static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_t * offset);
  static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t count,loff_t * offset);
 
-static void debg(int id);
+ static void debg(int id);
 /*/HEADERS*/
 
 /*STRUCTS*/
@@ -73,6 +73,7 @@ static struct file_operations assoofs_file_ops = {
 
 };
 
+
 /*Funcion que se llama al crear el superbloque*/
 static struct dentry * assoofs_get_super(struct file_system_type * fst, int flags, const char *devname, void *data){
 	return mount_bdev(fst,flags,devname,data,assoofs_fill_super);
@@ -81,26 +82,45 @@ static struct dentry * assoofs_get_super(struct file_system_type * fst, int flag
 /*Llena el superbloque que se le pasa como puntero super_block*/
 static int assoofs_fill_super(struct super_block *sb, void * data, int silent){
 
+	struct dentry *root_dentry;
+	struct inode * root_inode;
+	struct qstr qname;
+
+	qname.name = "root";
+	qname.len = 4;
+	qname.hash = full_name_hash("root", 4);
+
 	sb->s_blocksize = PAGE_CACHE_SIZE;
 	sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
 	sb->s_magic = LFS_MAGIC; //Numero magico
-	sb->s_op = &assoofs_s_ops; //definimos la estructura con todas las operaciones que soporte el sistema de ficheros
-	/*crear el root haciendo que el campo root del superbloque*/
-	//lalamas a la funcion create files pasandole el puntero raiz y el superbloque
+	sb->s_op = &assoofs_s_ops; //definimos la estructura con todas las operaciones que soporte el sistema de ficheros/*crear el root haciendo que el campo root del superbloque*///lalamas a la funcion create files pasandole el puntero raiz y el superbloque
+	
+	root_inode = assoofs_make_inode(sb,S_IFDIR | 0755);
+
+	root_inode->i_op = &simple_dir_inode_operations;
+	root_inode->i_fop = &simple_dir_operations;
+
+	root_dentry = d_make_root(root_inode); 
+
+	sb->s_root = root_dentry;
+
+	assoofs_create_files(sb,root_dentry);
+
+	debg(4);	
 	return OK;
 }
 
 /*Creara los ficheros y las carpetas que se crean en el programa*/
 static int assoofs_create_files(struct super_block *sb, struct dentry * root){
-	
-	atomic_set(&counter,0); //inicializa el contador a cero
-	assoofs_create_file(sb,root,"counter_1",&counter); // crear un contador para cada fichero por separado
+	struct dentry * dir;
 
+	atomic_set(&counter_1,0); //inicializa el contador a cero
+	assoofs_create_file(sb,root,"counter_1",&counter_1); // crear un contador para cada fichero por separado
+
+	dir = assoofs_create_directory(sb,root,"directory_0");
 
 	atomic_set(&counter_2,0); //inicializa el contador a cero
-	assoofs_create_file(sb,root,"counter_2",&counter_2);
-
-	assoofs_create_directory(sb,root,"directory_0");
+	assoofs_create_file(sb,dir,"counter_2",&counter_2);/*le pasamos como root del direotorio que hemos creado*/
 
 	debg(0);
 
@@ -130,7 +150,7 @@ static struct dentry  assoofs_create_file(struct super_block *sb, struct dentry 
 }
 
 /*Para la creacion de directorios*/
-static struct dentry assoofs_create_directory(struct super_block *sb, struct dentry *dir, const char * name){
+static struct dentry * assoofs_create_directory(struct super_block *sb, struct dentry *dir, const char * name){
 
 	struct dentry * dentry;
 	struct inode * inode;
@@ -142,14 +162,15 @@ static struct dentry assoofs_create_directory(struct super_block *sb, struct den
 
 	dentry = d_alloc(dir, &qname);
 
+		
 	inode = assoofs_make_inode(sb, S_IFDIR | DEF_PER_DIR);
 
+	inode->i_op = &simple_dir_inode_operations;
 	inode->i_fop = &assoofs_file_ops; 
-	//inode-> i_private = counter; //El directorio tambin tiene que tener el contador??
 
 	d_add(dentry,inode);
 	debg(2);
-	return *dentry;
+	return dentry;
 }
 
 /*Funcion ara crear inodo, declaramos el nuevo inode e iniciamlizamos los valores*/
@@ -159,7 +180,6 @@ static struct inode * assoofs_make_inode(struct super_block * sb, int mode){
 	if(ret){
 		ret-> i_mode = mode;
 		ret->i_uid.val = ret->i_gid.val = 0;
-		//ret->blksize = PAGE_CACHE_SIZE; /*No esta en el pdf*/
 		ret-> i_blocks = 0;
 		ret-> i_atime = ret->i_mtime = ret->i_ctime = CURRENT_TIME;
 	}
@@ -236,6 +256,7 @@ static void debg(int id){
 	if(id==0) printk(KERN_INFO "llamada a creaion de ficheros\n");
 	if(id==1) printk(KERN_INFO "llamada a creacion de fichero\n");
 	if(id==2) printk(KERN_INFO "llamada a cracion de directorio\n");
+	if(id==4) printk(KERN_INFO "finalizada llamada al superbloque\n");
 }
 
 
