@@ -39,7 +39,7 @@ static atomic_t counter_1, counter_2;
 
  static struct inode * assoofs_make_inode(struct super_block * sb, int mode);
 
- static int assoofs_open(struct inode * inode, struct file *flip);
+ static int assoofs_open(struct inode * inode, struct file * flip);
  static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_t * offset);
  static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t count,loff_t * offset);
 
@@ -73,6 +73,9 @@ static struct file_operations assoofs_file_ops = {
 	.write = assoofs_write_file,
 
 };
+/*VARIABLE GLOBAL DEL SUPERBLOQUE*/
+struct super_block * global_superblock;
+struct dentry * global_root_dentry;
 
 
 /*Funcion que se llama al crear el superbloque*/
@@ -96,12 +99,15 @@ static int assoofs_fill_super(struct super_block *sb, void * data, int silent){
 	sb->s_magic = LFS_MAGIC; //Numero magico
 	sb->s_op = &assoofs_s_ops; //definimos la estructura con todas las operaciones que soporte el sistema de ficheros/*crear el root haciendo que el campo root del superbloque*///lalamas a la funcion create files pasandole el puntero raiz y el superbloque
 	
+	global_superblock = sb;
+
 	root_inode = assoofs_make_inode(sb,S_IFDIR | DEF_PER_DIR );
 
 	root_inode->i_op = &simple_dir_inode_operations;
 	root_inode->i_fop = &simple_dir_operations;
 
-	root_dentry = d_make_root(root_inode); 
+	root_dentry = d_make_root(root_inode);
+	global_root_dentry = root_dentry; 
 
 	sb->s_root = root_dentry;
 
@@ -223,11 +229,20 @@ static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_
 	}
 
 /*Escritura de un fichero*/
+	/*Comprobar el flip para ver si apunta a algun sitio, si no apunta a ningun sitio se llamara a crear fichero
+	en el campo private data tendra una copia del contador*/
 	static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t count,loff_t * offset){
 		atomic_t * counter;
 		char tmp[TMPSIZE];
 
 		counter = (atomic_t *) flip->private_data;
+
+		if(flip==NULL){
+			
+			struct dentry new_file;
+			new_file = assoofs_create_file(global_superblock,global_root_dentry,buf,counter);
+		
+		}
 
 		if(*offset!=0)
 			return -EINVAL;
