@@ -22,9 +22,6 @@ __attribute__((section("__versions"))) = {
 	{ 0xe49b0af0, __VMLINUX_SYMBOL_STR(simple_statfs) },
 	{ 0xadc42932, __VMLINUX_SYMBOL_STR(generic_delete_inode) },
 	{ 0x3b18588e, __VMLINUX_SYMBOL_STR(register_filesystem) },
-	{ 0x26205c92, __VMLINUX_SYMBOL_STR(vfs_write) },
-	{ 0xb02fe5d6, __VMLINUX_SYMBOL_STR(vfs_read) },
-	{ 0x4c4fef19, __VMLINUX_SYMBOL_STR(kernel_stack) },
 	{ 0xb742fd7, __VMLINUX_SYMBOL_STR(simple_strtol) },
 	{ 0x4f6b400b, __VMLINUX_SYMBOL_STR(_copy_from_user) },
 	{ 0xc94eb4b1, __VMLINUX_SYMBOL_STR(d_make_root) },
@@ -51,4 +48,4 @@ __attribute__((section(".modinfo"))) =
 "depends=";
 
 
-MODULE_INFO(srcversion, "1C646DE0A0632474BF67116");
+MODULE_INFO(srcversion, "02A9F315300E733672906B6");

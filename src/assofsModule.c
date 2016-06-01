@@ -203,15 +203,11 @@ static int assoofs_open(struct inode * inode, struct file *flip){
 	return 0;
 }
 
-/*Letura de un fichero*/
+/*Letura de un fichero*//*se ejecuta como bucle si no hay condicion de parada*/
 static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_t * offset){
-	
-	if(TEST){
-		return file_read(flip,*offset,buf,100);
-	}
 
-	atomic_t * counter;
-	int len, v;
+	atomic_t * counter;			//Contador
+	int len, v;					
 	char tmp[TMPSIZE];
 
 	counter = (atomic_t *) flip->private_data;
@@ -223,17 +219,20 @@ static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_
 		atomic_inc(counter);
 	}
 
-	len = snprintf(tmp,TMPSIZE,"%d\n",v);
-
+	len = snprintf(tmp,TMPSIZE,"%d\n",v); //convierte el numero a cadena
+	/*
 	if(*offset > len)
 		return OK;
 
-	if(count>len -* offset)
+	if(count> len -* offset)
 		count = len - *offset;
-
-	if(copy_to_user(buf,tmp + *offset, count))
+	*/
+	/*
+	if(copy_to_user(buf,tmp + *offset, count)) //copia a buf lo que hay en tmp + offset, tantos bytes como el parametro count indique. tmp en espacio de kernel y buf en espacio de usuario
 		return -EFAULT;
-
+	*/
+	copy_to_user(buf,"Hello world\n",sizeof("Hello world\n"));
+	
 	*offset += count;
 	return count;
 }
@@ -242,11 +241,6 @@ static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_
 	/*Comprobar el flip para ver si apunta a algun sitio, si no apunta a ningun sitio se llamara a crear fichero
 	en el campo private data tendra una copia del contador*/
 static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t count,loff_t * offset){
-
-	if(TEST){
-		
-		return file_write(flip, *offset, buf, 100);
-	}
 
 	atomic_t * counter;
 	char tmp[TMPSIZE];
@@ -260,43 +254,19 @@ static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t c
 		debg(5);
 		assoofs_create_file(global_superblock,global_root_dentry,buf,counter);
 	}
-
+	/*
 	if(*offset!=0)
 		return -EINVAL;
 	if(count >= TMPSIZE)
 		return -EINVAL;
+	*/
 
-	memset(tmp,0,TMPSIZE);
+	//memset(tmp,0,TMPSIZE);
 
-	if(copy_from_user(tmp,buf,count))
+	if(copy_from_user(tmp,buf,count)) //En tmp vamos a tener lo que el usuario le pase como codigo
 		return -EFAULT;
-	atomic_set(counter, simple_strtol(tmp,NULL,10));
+	atomic_set(counter, simple_strtol(tmp,NULL,10));//Convierte la string en un unsigned long y se la pasa al contador, funcion obsoleta(puntero de la cadena inicial, puntero al final de la cadena, base para la conversion)
 	return count;
-}
-/*FUNCIONES PARA LA LECTURA Y ESCRUTURA DE TEXTO*/
-int file_read(struct file* file, unsigned long long offset, unsigned char* data, unsigned int size) {
-    mm_segment_t oldfs;
-    int ret;
-
-    oldfs = get_fs();
-    set_fs(get_ds());
-
-    ret = vfs_read(file, data, size, &offset);
-
-    set_fs(oldfs);
-    return ret;
-}
-int file_write(struct file* file, unsigned long long offset, unsigned char* data, unsigned int size) {
-    mm_segment_t oldfs;
-    int ret;
-
-    oldfs = get_fs();
-    set_fs(get_ds());
-
-    ret = vfs_write(file, data, size, &offset);
-
-    set_fs(oldfs);
-    return ret;
 }
 
 static int __init assoofs_init(void){
@@ -322,3 +292,32 @@ static void debg(int id){
 
 module_init(assoofs_init);
 module_exit(cleanup_assoofs);
+
+
+/*FUNCIONES PARA LA LECTURA Y ESCRUTURA DE TEXTO*/
+/*
+int file_read(struct file* file, unsigned long long offset, unsigned char* data, unsigned int size) {
+    mm_segment_t oldfs;
+    int ret;
+
+    oldfs = get_fs();
+    set_fs(get_ds());
+
+    ret = vfs_read(file, data, size, &offset);
+
+    set_fs(oldfs);
+    return ret;
+}
+int file_write(struct file* file, unsigned long long offset, unsigned char* data, unsigned int size) {
+    mm_segment_t oldfs;
+    int ret;
+
+    oldfs = get_fs();
+    set_fs(get_ds());
+
+    ret = vfs_write(file, data, size, &offset);
+
+    set_fs(oldfs);
+    return ret;
+}
+*/
