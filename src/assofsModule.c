@@ -17,6 +17,7 @@
 #define OK 0
 #define ERROR -1
 #define DEBUG 1
+#define TEST 0
 
 /**
 funciones que empieizen pir assofs hay que implenetarlo nosotros
@@ -42,6 +43,10 @@ static atomic_t counter_1, counter_2;
  static int assoofs_open(struct inode * inode, struct file * flip);
  static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_t * offset);
  static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t count,loff_t * offset);
+
+ /*Testing*/
+ int file_read(struct file* file, unsigned long long offset, unsigned char* data, unsigned int size);
+ int file_write(struct file* file, unsigned long long offset, unsigned char* data, unsigned int size);
 
  static void debg(int id);
 /*/HEADERS*/
@@ -134,7 +139,7 @@ static int assoofs_create_files(struct super_block *sb, struct dentry * root){
 	return OK;
 }
 
-/*Crea un solo fichero, toma el superblo y se usa una estructura dentry(Entrad al directorio o algo asi) del dorecori cdonce lo queramos crear*/
+/*Crea un fichero y devuelve la entrada del direcorio del mismo*/
 static struct dentry  assoofs_create_file(struct super_block *sb, struct dentry *dir, const char * name, atomic_t * counter){
 	struct dentry * dentry;
 	struct inode * inode;
@@ -168,7 +173,7 @@ static struct dentry * assoofs_create_directory(struct super_block *sb, struct d
 	qname.hash = full_name_hash(name, qname.len);
 
 	dentry = d_alloc(dir, &qname);
-		
+
 	inode = assoofs_make_inode(sb, S_IFDIR | DEF_PER_DIR);
 
 	inode->i_op = &simple_dir_inode_operations;
@@ -201,6 +206,10 @@ static int assoofs_open(struct inode * inode, struct file *flip){
 /*Letura de un fichero*/
 static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_t * offset){
 	
+	if(TEST){
+		return file_read(flip,*offset,buf,100);
+	}
+
 	atomic_t * counter;
 	int len, v;
 	char tmp[TMPSIZE];
@@ -208,57 +217,90 @@ static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_
 	counter = (atomic_t *) flip->private_data;
 	v = atomic_read(counter);
 	
-	if(*offset>0)
+	if(*offset>0){
 		v-= 1; /*valor que se devolvera si el offset es cero*/
-		else
-			atomic_inc(counter);
-
-		len = snprintf(tmp,TMPSIZE,"%d\n",v);
-
-		if(*offset > len)
-			return OK;
-
-		if(count>len -* offset)
-			count = len - *offset;
-
-		if(copy_to_user(buf,tmp + *offset, count))
-			return -EFAULT;
-
-		*offset += count;
-		return count;
+	}else{
+		atomic_inc(counter);
 	}
 
-/*Escritura de un fichero*/
+	len = snprintf(tmp,TMPSIZE,"%d\n",v);
+
+	if(*offset > len)
+		return OK;
+
+	if(count>len -* offset)
+		count = len - *offset;
+
+	if(copy_to_user(buf,tmp + *offset, count))
+		return -EFAULT;
+
+	*offset += count;
+	return count;
+}
+
+	/*Escritura de un fichero*/
 	/*Comprobar el flip para ver si apunta a algun sitio, si no apunta a ningun sitio se llamara a crear fichero
 	en el campo private data tendra una copia del contador*/
-	static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t count,loff_t * offset){
-		atomic_t * counter;
-		char tmp[TMPSIZE];
+static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t count,loff_t * offset){
 
-		counter = (atomic_t *) flip->private_data;
-
-		if(flip==NULL){
-			
-			struct dentry new_file;
-			new_file = assoofs_create_file(global_superblock,global_root_dentry,buf,counter);
+	if(TEST){
 		
-		}
-
-		if(*offset!=0)
-			return -EINVAL;
-		if(count >= TMPSIZE)
-			return -EINVAL;
-
-		memset(tmp,0,TMPSIZE);
-
-		if(copy_from_user(tmp,buf,count))
-			return -EFAULT;
-		atomic_set(counter, simple_strtol(tmp,NULL,10));
-		return count;
+		return file_write(flip, *offset, buf, 100);
 	}
 
+	atomic_t * counter;
+	char tmp[TMPSIZE];
+
+	counter = (atomic_t *) flip->private_data;
+
+	debg(6);
+
+	/*******PARTE OPTATIVA*******/
+	if(flip==NULL){
+		debg(5);
+		assoofs_create_file(global_superblock,global_root_dentry,buf,counter);
+	}
+
+	if(*offset!=0)
+		return -EINVAL;
+	if(count >= TMPSIZE)
+		return -EINVAL;
+
+	memset(tmp,0,TMPSIZE);
+
+	if(copy_from_user(tmp,buf,count))
+		return -EFAULT;
+	atomic_set(counter, simple_strtol(tmp,NULL,10));
+	return count;
+}
+/*FUNCIONES PARA LA LECTURA Y ESCRUTURA DE TEXTO*/
+int file_read(struct file* file, unsigned long long offset, unsigned char* data, unsigned int size) {
+    mm_segment_t oldfs;
+    int ret;
+
+    oldfs = get_fs();
+    set_fs(get_ds());
+
+    ret = vfs_read(file, data, size, &offset);
+
+    set_fs(oldfs);
+    return ret;
+}
+int file_write(struct file* file, unsigned long long offset, unsigned char* data, unsigned int size) {
+    mm_segment_t oldfs;
+    int ret;
+
+    oldfs = get_fs();
+    set_fs(get_ds());
+
+    ret = vfs_write(file, data, size, &offset);
+
+    set_fs(oldfs);
+    return ret;
+}
+
 static int __init assoofs_init(void){
-	
+
 	printk(KERN_INFO "insertado modulo asssofs \n");
     return register_filesystem(&assoofs_type); /*Direcion de memoria de una estructura*/
 }
@@ -269,10 +311,12 @@ static void __exit cleanup_assoofs(void){
 
 }
 static void debg(int id){
-	if(id==0) printk(KERN_INFO "llamada a creaion de ficheros\n");
-	if(id==1) printk(KERN_INFO "llamada a creacion de fichero\n");
-	if(id==2) printk(KERN_INFO "llamada a cracion de directorio\n");
-	if(id==4) printk(KERN_INFO "finalizada llamada al superbloque\n");
+	if(id==0) printk(KERN_INFO "Llamada a creacion de ficheros\n");
+	if(id==1) printk(KERN_INFO "Llamada a creacion de fichero\n");
+	if(id==2) printk(KERN_INFO "Llamada a creacion de directorio\n");
+	if(id==4) printk(KERN_INFO "Finalizada llamada al superbloque\n");
+	if(id==5) printk(KERN_INFO "Se ha intentado escribir sobre un fichero que no existe\n");
+	if(id==6) printk(KERN_INFO "Llamada a escritura sobre fchero\n");
 }
 
 
