@@ -15,9 +15,6 @@
 #define DEF_PER_DIR 0755
 
 #define OK 0
-#define ERROR -1
-#define DEBUG 1
-#define TEST 0
 
 /**
 funciones que empieizen pir assofs hay que implenetarlo nosotros
@@ -26,11 +23,8 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Manuel Fidalgo Fierro");
 static atomic_t counter_1, counter_2;
 
-/**
- Hay que defnir un superbloque inicializarlo y configurarlo
-*/
+
  /*HEADERS*/
- /**/
  static struct dentry * assoofs_get_super(struct file_system_type * fst, int flags, const char *devname, void *data);
  static int assoofs_fill_super(struct super_block *sb, void * data, int silent);
 
@@ -44,40 +38,15 @@ static atomic_t counter_1, counter_2;
  static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_t * offset);
  static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t count,loff_t * offset);
 
- /*Testing*/
- int file_read(struct file* file, unsigned long long offset, unsigned char* data, unsigned int size);
- int file_write(struct file* file, unsigned long long offset, unsigned char* data, unsigned int size);
-
- static void debg(int id);
-/*/HEADERS*/
+ /*Para la parte opcional*/
+ static struct dentry *assoofs_lookup(struct inode *parent_inode, struct dentry *child_dentry, unsigned int flags);
+ static int assoofs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode);
+ static int assoofs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl);
 
 
-/*STRUCTS*/
- /**
- struct dentry *assoofs_lookup(struct inode *parent_inode, struct dentry *child_dentry, unsigned int flags);
-static int assoofs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode);
-static int assoofs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl);
 
-static struct inode_operations assoofs_inode_ops = {
-    .create = assoofs_create,
-    .lookup = assoofs_lookup,
-    .mkdir = assoofs_mkdir,
-};
 
-Y cuando creemos un inodo directorio, asignaremos esta nueva estructura en lugar de simple_dir_inode_operations. Por ejemplo. cuando creamos el inodo raiz en assoofs_fill_super:
 
-//root->i_op = &simple_dir_inode_operations;
-root->i_op = &assoofs_inode_ops;
-
-La implementación de assoofs_lookup puede ser como sigue:
-
-struct dentry *assoofs_lookup(struct inode *parent_inode, struct dentry *child_dentry, unsigned int flags)
-{
-    printk(KERN_INFO "Looking up inode...\n");
-
-    return NULL;
-}
- */
  /*Define el typo de sistema que hemos creado, tipo nombre y funciones que se llaman al montar y desmontar*/
  static struct file_system_type assoofs_type = {
 
@@ -105,17 +74,15 @@ static struct file_operations assoofs_file_ops = {
 
 };
 /*Struct para las operaciones con inodos*/
- static struct inode_operations assoofs_inode_ops = {
+static struct inode_operations assoofs_inode_ops = {
 
- 	.create = assoofs_create,
- 	.lookup = asssfo_lookup,
- 	.mkdir = assoofs_mkdir,
+	.create = assoofs_create,
+	.lookup = assoofs_lookup,
+	.mkdir = assoofs_mkdir,
 
- };
+};
 
-/*VARIABLE GLOBAL DEL SUPERBLOQUE*/
-struct super_block * global_superblock;
-struct dentry * global_root_dentry;
+
 
 
 /*Funcion que se llama al crear el superbloque*/
@@ -139,21 +106,18 @@ static int assoofs_fill_super(struct super_block *sb, void * data, int silent){
 	sb->s_magic = LFS_MAGIC; //Numero magico
 	sb->s_op = &assoofs_s_ops; //definimos la estructura con todas las operaciones que soporte el sistema de ficheros/*crear el root haciendo que el campo root del superbloque*///lalamas a la funcion create files pasandole el puntero raiz y el superbloque
 	
-	global_superblock = sb;
-
 	root_inode = assoofs_make_inode(sb,S_IFDIR | DEF_PER_DIR );
 
-	root_inode->i_op = &simple_dir_inode_operations;
+	root_inode->i_op = &assoofs_inode_ops; 	//Cmabiamos las operaciones por defecto del inodo para las partes opcionales
 	root_inode->i_fop = &simple_dir_operations;
 
 	root_dentry = d_make_root(root_inode);
-	global_root_dentry = root_dentry; 
-
+	
 	sb->s_root = root_dentry;
 
 	assoofs_create_files(sb,root_dentry);
 
-	debg(4);	
+		
 	return OK;
 }
 
@@ -169,7 +133,6 @@ static int assoofs_create_files(struct super_block *sb, struct dentry * root){
 	atomic_set(&counter_2,0); //inicializa el contador a cero
 	assoofs_create_file(sb,dir,"counter_2",&counter_2);/*le pasamos como root del direotorio que hemos creado*/
 
-	debg(0);
 
 	return OK;
 }
@@ -189,11 +152,45 @@ static struct dentry  assoofs_create_file(struct super_block *sb, struct dentry 
 	inode = assoofs_make_inode(sb, S_IFREG | DEF_PER_FILE );//flag que indica el tipo y los permisos por defecto, 
 	
 	inode->i_fop = &assoofs_file_ops; //Operaciones que va a soportar
-	inode-> i_private = counter; // campo donde se le asgina el contador, solo apra kernel 3.0 o superior cuidado con la informacion
+	inode->i_private = counter; //campo donde se le asgina el contador, solo apra kernel 3.0 o superior cuidado con la informacion
 	
 	d_add(dentry,inode); //añadimos la estructura dentry y el dentry,ufs capa intermedia que abstrae(clase abstracta que luego referecnia a una clase real)
-	debg(1);
+	
 	return *dentry; //devolvemos el struct dentry;
+}
+/*
+La implementación de las funciones assoofs_mkdir y assoofs_create es muy similar a la de las funciones assoofs_create_file y assoofs_create_dir.
+Sólo que en este caso, solamente tenemos que crear el nuevo inodo y asignarle el contador. 
+La estructura dentry que necesitamos nos viene como argumento en la función y ya está inicializada.
+*/
+static struct dentry * assoofs_lookup(struct inode *parent_inode, struct dentry *child_dentry, unsigned int flags){
+	
+	printk(KERN_INFO "assoofs_lookup\n");
+	return NULL;
+}
+static int assoofs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode){
+	
+	struct inode * inode = assoofs_make_inode(dir->i_sb,mode);
+
+	inode->i_op = &assoofs_inode_ops;
+	inode->i_fop = &simple_dir_operations;
+
+	d_add(dentry,inode);
+
+	printk(KERN_INFO "assoofs_mkdir sucess\n");
+	return OK;
+}
+static int assoofs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl){
+
+	struct inode * inode= assoofs_make_inode(dir->i_sb,mode);
+	
+	inode->i_fop = &assoofs_file_ops; //Operaciones que va a soportar
+	inode->i_private = NULL;
+
+	d_add(dentry,inode);
+
+	printk(KERN_INFO "assoofs_create sucess\n");
+	return OK;
 }
 
 /*Para la creacion de directorios*/
@@ -211,14 +208,14 @@ static struct dentry * assoofs_create_directory(struct super_block *sb, struct d
 
 	inode = assoofs_make_inode(sb, S_IFDIR | DEF_PER_DIR);
 
-	inode->i_op = &simple_dir_inode_operations;
+	inode->i_op = &assoofs_inode_ops;
 	inode->i_fop = &simple_dir_operations; 
 
 	d_add(dentry,inode);
 	
-	debg(2);
 	return dentry;
 }
+
 
 /*Funcion ara crear inodo, declaramos el nuevo inode e iniciamlizamos los valores*/
 static struct inode * assoofs_make_inode(struct super_block * sb, int mode){
@@ -232,6 +229,7 @@ static struct inode * assoofs_make_inode(struct super_block * sb, int mode){
 	}
 	return ret;
 }
+
 /*Agrega el valor del campo i_private del inodo al campo private_data del fchero*/
 static int assoofs_open(struct inode * inode, struct file *flip){
 	flip->private_data = inode->i_private;
@@ -244,6 +242,7 @@ static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_
 	atomic_t * counter;			//Contador
 	int len, v;					
 	char tmp[TMPSIZE];
+	len=0; v=0;
 
 	counter = (atomic_t *) flip->private_data;
 	v = atomic_read(counter);
@@ -261,7 +260,6 @@ static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_
 	if(count> len -* offset)
 		count = len - *offset;
 	
-	
 	if(copy_to_user(buf,tmp + *offset, count)) //copia a buf lo que hay en tmp + offset, tantos bytes como el parametro count indique. tmp en espacio de kernel y buf en espacio de usuario
 		return -EFAULT;
 	
@@ -269,9 +267,6 @@ static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_
 	return count;
 }
 
-	/*Escritura de un fichero*/
-	/*Comprobar el flip para ver si apunta a algun sitio, si no apunta a ningun sitio se llamara a crear fichero
-	en el campo private data tendra una copia del contador*/
 static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t count,loff_t * offset){
 
 	atomic_t * counter;
@@ -279,20 +274,12 @@ static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t c
 
 	counter = (atomic_t *) flip->private_data;
 
-	debg(6);
 
-	/*******PARTE OPTATIVA*******/
-	if(flip==NULL){
-		debg(5);
-		assoofs_create_file(global_superblock,global_root_dentry,buf,counter);
-	}
-	
 	if(*offset!=0)
 		return -EINVAL;
 	if(count >= TMPSIZE)
 		return -EINVAL;
 	
-
 	memset(tmp,0,TMPSIZE);
 
 	if(copy_from_user(tmp,buf,count)) //En tmp vamos a tener lo que el usuario le pase como codigo
@@ -312,44 +299,7 @@ static void __exit cleanup_assoofs(void){
 	printk(KERN_INFO "extraido modulo asssofs \n");
 
 }
-static void debg(int id){
-	if(id==0) printk(KERN_INFO "Llamada a creacion de ficheros\n");
-	if(id==1) printk(KERN_INFO "Llamada a creacion de fichero\n");
-	if(id==2) printk(KERN_INFO "Llamada a creacion de directorio\n");
-	if(id==4) printk(KERN_INFO "Finalizada llamada al superbloque\n");
-	if(id==5) printk(KERN_INFO "Se ha intentado escribir sobre un fichero que no existe\n");
-	if(id==6) printk(KERN_INFO "Llamada a escritura sobre fchero\n");
-}
 
 
 module_init(assoofs_init);
 module_exit(cleanup_assoofs);
-
-
-/*FUNCIONES PARA LA LECTURA Y ESCRUTURA DE TEXTO*/
-/*
-int file_read(struct file* file, unsigned long long offset, unsigned char* data, unsigned int size) {
-    mm_segment_t oldfs;
-    int ret;
-
-    oldfs = get_fs();
-    set_fs(get_ds());
-
-    ret = vfs_read(file, data, size, &offset);
-
-    set_fs(oldfs);
-    return ret;
-}
-int file_write(struct file* file, unsigned long long offset, unsigned char* data, unsigned int size) {
-    mm_segment_t oldfs;
-    int ret;
-
-    oldfs = get_fs();
-    set_fs(get_ds());
-
-    ret = vfs_write(file, data, size, &offset);
-
-    set_fs(oldfs);
-    return ret;
-}
-*/
