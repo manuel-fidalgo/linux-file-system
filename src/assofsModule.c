@@ -51,7 +51,33 @@ static atomic_t counter_1, counter_2;
  static void debg(int id);
 /*/HEADERS*/
 
+
 /*STRUCTS*/
+ /**
+ struct dentry *assoofs_lookup(struct inode *parent_inode, struct dentry *child_dentry, unsigned int flags);
+static int assoofs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode);
+static int assoofs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl);
+
+static struct inode_operations assoofs_inode_ops = {
+    .create = assoofs_create,
+    .lookup = assoofs_lookup,
+    .mkdir = assoofs_mkdir,
+};
+
+Y cuando creemos un inodo directorio, asignaremos esta nueva estructura en lugar de simple_dir_inode_operations. Por ejemplo. cuando creamos el inodo raiz en assoofs_fill_super:
+
+//root->i_op = &simple_dir_inode_operations;
+root->i_op = &assoofs_inode_ops;
+
+La implementación de assoofs_lookup puede ser como sigue:
+
+struct dentry *assoofs_lookup(struct inode *parent_inode, struct dentry *child_dentry, unsigned int flags)
+{
+    printk(KERN_INFO "Looking up inode...\n");
+
+    return NULL;
+}
+ */
  /*Define el typo de sistema que hemos creado, tipo nombre y funciones que se llaman al montar y desmontar*/
  static struct file_system_type assoofs_type = {
 
@@ -78,6 +104,15 @@ static struct file_operations assoofs_file_ops = {
 	.write = assoofs_write_file,
 
 };
+/*Struct para las operaciones con inodos*/
+ static struct inode_operations assoofs_inode_ops = {
+
+ 	.create = assoofs_create,
+ 	.lookup = asssfo_lookup,
+ 	.mkdir = assoofs_mkdir,
+
+ };
+
 /*VARIABLE GLOBAL DEL SUPERBLOQUE*/
 struct super_block * global_superblock;
 struct dentry * global_root_dentry;
@@ -220,18 +255,15 @@ static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_
 	}
 
 	len = snprintf(tmp,TMPSIZE,"%d\n",v); //convierte el numero a cadena
-	/*
 	if(*offset > len)
 		return OK;
 
 	if(count> len -* offset)
 		count = len - *offset;
-	*/
-	/*
+	
+	
 	if(copy_to_user(buf,tmp + *offset, count)) //copia a buf lo que hay en tmp + offset, tantos bytes como el parametro count indique. tmp en espacio de kernel y buf en espacio de usuario
 		return -EFAULT;
-	*/
-	copy_to_user(buf,"Hello world\n",sizeof("Hello world\n"));
 	
 	*offset += count;
 	return count;
@@ -254,14 +286,14 @@ static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t c
 		debg(5);
 		assoofs_create_file(global_superblock,global_root_dentry,buf,counter);
 	}
-	/*
+	
 	if(*offset!=0)
 		return -EINVAL;
 	if(count >= TMPSIZE)
 		return -EINVAL;
-	*/
+	
 
-	//memset(tmp,0,TMPSIZE);
+	memset(tmp,0,TMPSIZE);
 
 	if(copy_from_user(tmp,buf,count)) //En tmp vamos a tener lo que el usuario le pase como codigo
 		return -EFAULT;
