@@ -170,11 +170,11 @@ static struct dentry * assoofs_lookup(struct inode *parent_inode, struct dentry 
 }
 static int assoofs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode){
 	
-	struct inode * inode = assoofs_make_inode(dir->i_sb,mode);
+	struct inode * inode = assoofs_make_inode(dir->i_sb, S_IFDIR | DEF_PER_DIR);
 
 	inode->i_op = &assoofs_inode_ops;
 	inode->i_fop = &simple_dir_operations;
-
+	//inode->i_fop = &assoofs_inode_ops;
 	d_add(dentry,inode);
 
 	printk(KERN_INFO "assoofs_mkdir sucess\n");
@@ -182,10 +182,13 @@ static int assoofs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 }
 static int assoofs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl){
 
+	atomic_t cout;
+	atomic_set(&cout,0);
+
 	struct inode * inode= assoofs_make_inode(dir->i_sb,mode);
 	
 	inode->i_fop = &assoofs_file_ops; //Operaciones que va a soportar
-	inode->i_private = NULL;
+	inode->i_private = &cout; //habria que añadirle el contador, que ni idea de donde lo voy a sacar...
 
 	d_add(dentry,inode);
 
