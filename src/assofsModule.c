@@ -39,7 +39,7 @@ static atomic_t counter_1, counter_2;
  static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t count,loff_t * offset);
 
  /*Para la parte opcional*/
- static struct dentry *assoofs_lookup(struct inode *parent_inode, struct dentry *child_dentry, unsigned int flags);
+ static struct dentry * assoofs_lookup(struct inode *parent_inode, struct dentry *child_dentry, unsigned int flags);
  static int assoofs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode);
  static int assoofs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl);
 
@@ -133,7 +133,6 @@ static int assoofs_create_files(struct super_block *sb, struct dentry * root){
 	atomic_set(&counter_2,0); //inicializa el contador a cero
 	assoofs_create_file(sb,dir,"counter_2",&counter_2);/*le pasamos como root del direotorio que hemos creado*/
 
-
 	return OK;
 }
 
@@ -163,26 +162,42 @@ La implementación de las funciones assoofs_mkdir y assoofs_create es muy simila
 Sólo que en este caso, solamente tenemos que crear el nuevo inodo y asignarle el contador. 
 La estructura dentry que necesitamos nos viene como argumento en la función y ya está inicializada.
 */
+/*
+lookup: called when the VFS needs to look up an inode in a parent
+	directory. The name to look for is found in the dentry. This
+	method must call d_add() to insert the found inode into the
+	dentry. The "i_count" field in the inode structure should be
+	incremented. If the named inode does not exist a NULL inode
+	should be inserted into the dentry (this is called a negative
+	dentry). Returning an error code from this routine must only
+	be done on a real error, otherwise creating inodes with system
+	calls like create(2), mknod(2), mkdir(2) and so on will fail.
+	If you wish to overload the dentry methods then you should
+	initialise the "d_dop" field in the dentry; this is a pointer
+	to a struct "dentry_operations".
+	This method is called with the directory inode semaphore held
+*/
 static struct dentry * assoofs_lookup(struct inode *parent_inode, struct dentry *child_dentry, unsigned int flags){
-	
+
 	printk(KERN_INFO "assoofs_lookup\n");
 	return NULL;
 }
+
 static int assoofs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode){
 	
 	struct inode * inode = assoofs_make_inode(dir->i_sb, S_IFDIR | DEF_PER_DIR);
 
 	inode->i_op = &assoofs_inode_ops;
 	inode->i_fop = &simple_dir_operations;
-	//inode->i_fop = &assoofs_inode_ops;
+
 	d_add(dentry,inode);
 
 	printk(KERN_INFO "assoofs_mkdir sucess\n");
 	return OK;
 }
+atomic_t cout; 	/*La declaramos como global?*/
 static int assoofs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl){
-
-	atomic_t cout;
+	
 	atomic_set(&cout,0);
 
 	struct inode * inode= assoofs_make_inode(dir->i_sb,mode);
@@ -275,13 +290,18 @@ static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t c
 	atomic_t * counter;
 	char tmp[TMPSIZE];
 
+	printk(KERN_INFO "assoofs_write_file buf->%s",buf);
+
 	counter = (atomic_t *) flip->private_data;
 
+	if(*offset!=0){
+		printk(KERN_INFO "offset!=0, returned -EINVAL\n");
+		return -EINVAL;
+	}
+	if(count >= TMPSIZE){
 
-	if(*offset!=0)
 		return -EINVAL;
-	if(count >= TMPSIZE)
-		return -EINVAL;
+	}
 	
 	memset(tmp,0,TMPSIZE);
 
