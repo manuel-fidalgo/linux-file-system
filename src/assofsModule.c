@@ -43,12 +43,12 @@ static atomic_t counter_1, counter_2;
  static int assoofs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode);
  static int assoofs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl);
 
-
+ 		int isANumber(char * cadena);
 
 
 
  /*Define el typo de sistema que hemos creado, tipo nombre y funciones que se llaman al montar y desmontar*/
- static struct file_system_type assoofs_type = {
+static struct file_system_type assoofs_type = {
 
  	.owner = THIS_MODULE,
  	.name = NAME,
@@ -81,8 +81,6 @@ static struct inode_operations assoofs_inode_ops = {
 	.mkdir = assoofs_mkdir,
 
 };
-
-
 
 
 /*Funcion que se llama al crear el superbloque*/
@@ -157,6 +155,7 @@ static struct dentry  assoofs_create_file(struct super_block *sb, struct dentry 
 	
 	return *dentry; //devolvemos el struct dentry;
 }
+
 /*
 La implementación de las funciones assoofs_mkdir y assoofs_create es muy similar a la de las funciones assoofs_create_file y assoofs_create_dir.
 Sólo que en este caso, solamente tenemos que crear el nuevo inodo y asignarle el contador. 
@@ -195,12 +194,14 @@ static int assoofs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	printk(KERN_INFO "assoofs_mkdir sucess\n");
 	return OK;
 }
+
 atomic_t cout; 	/*La declaramos como global?*/
 static int assoofs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl){
 	
-	atomic_set(&cout,0);
+	struct inode * inode;
 
-	struct inode * inode= assoofs_make_inode(dir->i_sb,mode);
+	atomic_set(&cout,0);
+	inode = assoofs_make_inode(dir->i_sb,mode);
 	
 	inode->i_fop = &assoofs_file_ops; //Operaciones que va a soportar
 	inode->i_private = &cout; //habria que añadirle el contador, que ni idea de donde lo voy a sacar...
@@ -254,43 +255,52 @@ static int assoofs_open(struct inode * inode, struct file *flip){
 	return 0;
 }
 
-/*Letura de un fichero*//*se ejecuta como bucle si no hay condicion de parada*/
+/*Letura de un fichero*//*se ejecuta como bucle ??*/
 static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_t * offset){
-
+/*
 	atomic_t * counter;			//Contador
-	int len, v;					
-	char tmp[TMPSIZE];
-	len=0; v=0;
-
+	int len, v;	
+	char tmp[TMPSIZE];	
+	
 	counter = (atomic_t *) flip->private_data;
 	v = atomic_read(counter);
 	
 	if(*offset>0){
-		v-= 1; /*valor que se devolvera si el offset es cero*/
+		printk(KERN_INFO "offset>0, v=-1\n");
+		v-= 1; //valor que se devolvera si el offset es cero
 	}else{
 		atomic_inc(counter);
 	}
 
-	len = snprintf(tmp,TMPSIZE,"%d\n",v); //convierte el numero a cadena
-	if(*offset > len)
+	len = snprintf(tmp,TMPSIZE,"%d\n",v); //convierte el numero a cadena(buffer de vuelta, maximos bytes del buffer y formato)
+	
+	if(*offset > len){
+		printk(KERN_INFO "*offset > len, returned OK\n");
 		return OK;
+	}
 
-	if(count> len -* offset)
+	if(count> len -* offset){
+		printk(KERN_INFO "count> len -* offset, count = len - *offset\n");
 		count = len - *offset;
+	}
 	
 	if(copy_to_user(buf,tmp + *offset, count)) //copia a buf lo que hay en tmp + offset, tantos bytes como el parametro count indique. tmp en espacio de kernel y buf en espacio de usuario
 		return -EFAULT;
 	
 	*offset += count;
 	return count;
+*/
+	copy_to_user(buf,flip->private_data,count);
+	return count;
 }
 
-static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t count,loff_t * offset){
-
+static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t count ,loff_t * offset){
+	
+/*
 	atomic_t * counter;
 	char tmp[TMPSIZE];
 
-	printk(KERN_INFO "assoofs_write_file buf->%s",buf);
+	printk(KERN_INFO "assoofs_write_file buf->%s, cout->%d offset->%d\n",buf,count,(int)*offset);
 
 	counter = (atomic_t *) flip->private_data;
 
@@ -299,16 +309,21 @@ static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t c
 		return -EINVAL;
 	}
 	if(count >= TMPSIZE){
-
+		printk(KERN_INFO "count >= TMPSIZE, returned -EINVAL\n");
 		return -EINVAL;
 	}
-	
-	memset(tmp,0,TMPSIZE);
 
-	if(copy_from_user(tmp,buf,count)) //En tmp vamos a tener lo que el usuario le pase como codigo
+	memset(tmp,0,TMPSIZE); //copia desde caracter cero en los TMPSIZE primeros caracters apuntador por tmp
+
+	if(copy_from_user(tmp,buf,count)) //copia buf de que esta a en epacion de usuario a tp que esta en espacio de kernel
 		return -EFAULT;
+
 	atomic_set(counter, simple_strtol(tmp,NULL,10));//Convierte la string en un unsigned long y se la pasa al contador, funcion obsoleta(puntero de la cadena inicial, puntero al final de la cadena, base para la conversion)
 	return count;
+*/
+	copy_from_user(flip->private_data,buf,count);
+	return count;
+
 }
 
 static int __init assoofs_init(void){
