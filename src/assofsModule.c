@@ -294,24 +294,34 @@ static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_
 	
 	*offset += count;
 	return count;
-*/	int i=0;
+*/	int i;
+	char tmp[TMPSIZE];
 	char * pt;
-	printk(KERN_INFO "En read call flip-private->\n");
+	int len = TMPSIZE; //tamaño de lo que hay cntendio en el buffer
+
+	if(*offset > len){
+		printk(KERN_INFO "*offset > len, returned OK\n");
+		return OK;
+	}
+
+	if(count > len -* offset){
+		printk(KERN_INFO "count> len -* offset, count = len - *offset\n");
+		count = len - *offset;
+	}
+
 	pt = flip->private_data;
-	
-	for(i=0;i<TMPSIZE;i++){
-		printk(KERN_INFO "%c",pt[i]);
-	}
-	printk(KERN_INFO "\n");
+	printk(KERN_INFO "llamda a fileread\n");
 
-	copy_from_user(buf,flip->private_data+*offset,count);
-
-	printk(KERN_INFO "En read call buf->\n");
-	for(i=0;i<TMPSIZE;i++){
-		printk(KERN_INFO "%c",buf[i]);
+	for(i=0; i< TMPSIZE; i++){
+		tmp[i] = pt[i];
 	}
-	printk(KERN_INFO "\n");
-	*offset =+count;
+
+	printk(KERN_INFO "Mensaje en tmp -> %s",tmp);
+
+	copy_to_user(buf,tmp+*offset,count);
+
+	printk(KERN_INFO "Mensaje en buf -> %s",tmp);
+	*offset+=count;
 	return count;
 	
 }
@@ -343,24 +353,7 @@ static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t c
 	atomic_set(counter, simple_strtol(tmp,NULL,10));//Convierte la string en un unsigned long y se la pasa al contador, funcion obsoleta(puntero de la cadena inicial, puntero al final de la cadena, base para la conversion)
 	return count;
 */
-	int i=0;
-	char * pt;
-	char tmp[TMPSIZE];
-	copy_from_user(tmp,buf,count);
-	for(i=0;i<TMPSIZE;i++){
-		printk(KERN_INFO "%c",tmp[i]);
-	}
-	printk(KERN_INFO "\n");
-	
-	flip->private_data = tmp;
-
-	pt = flip->private_data;
-
-	for(i=0;i<TMPSIZE;i++){
-		printk(KERN_INFO "%c",pt[i]);
-	}
-	printk(KERN_INFO "\n");
-
+	copy_from_user(flip->private_data,buf,count);
 	return count;
 
 }
