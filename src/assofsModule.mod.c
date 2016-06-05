@@ -31,7 +31,7 @@ __attribute__((section("__versions"))) = {
 	{ 0x1896ba7e, __VMLINUX_SYMBOL_STR(simple_dir_operations) },
 	{ 0x34184afe, __VMLINUX_SYMBOL_STR(current_kernel_time) },
 	{ 0x707baa85, __VMLINUX_SYMBOL_STR(new_inode) },
-	{ 0x4f8b5ddb, __VMLINUX_SYMBOL_STR(_copy_to_user) },
+	{ 0xdb7305a1, __VMLINUX_SYMBOL_STR(__stack_chk_fail) },
 	{ 0x4f6b400b, __VMLINUX_SYMBOL_STR(_copy_from_user) },
 	{ 0x4ede024, __VMLINUX_SYMBOL_STR(mount_bdev) },
 	{ 0x27e1a049, __VMLINUX_SYMBOL_STR(printk) },
@@ -44,4 +44,4 @@ __attribute__((section(".modinfo"))) =
 "depends=";
 
 
-MODULE_INFO(srcversion, "410B59D2363716628252CBF");
+MODULE_INFO(srcversion, "C084E561F28134E325215E2");

@@ -5,6 +5,7 @@
 #include <linux/fs.h>        /* libfs stuff *//*Lpara configurar el superbloque*/
 #include <asm/atomic.h>      /* atomic_t stuff */
 #include <asm/uaccess.h>     /* copy_to_user */
+#include <linux/slab.h>
 
 #define NAME "assoofs"
 
@@ -15,6 +16,10 @@
 #define DEF_PER_DIR 0755
 
 #define OK 0
+#define FATAL_ERROR -1
+#define FALSE 0
+#define TRUE 1
+
 
 /**
 funciones que empieizen pir assofs hay que implenetarlo nosotros
@@ -42,8 +47,7 @@ static atomic_t counter_1, counter_2;
  static struct dentry * assoofs_lookup(struct inode *parent_inode, struct dentry *child_dentry, unsigned int flags);
  static int assoofs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode);
  static int assoofs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl);
-
- 		int isANumber(char * cadena);
+ int isANumber(char * cadena);
 
 
 
@@ -257,6 +261,7 @@ static int assoofs_open(struct inode * inode, struct file *flip){
 
 /*Letura de un fichero*//*se ejecuta como bucle ??*/
 static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_t * offset){
+
 /*
 	atomic_t * counter;			//Contador
 	int len, v;	
@@ -289,9 +294,26 @@ static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_
 	
 	*offset += count;
 	return count;
-*/
-	copy_to_user(buf,flip->private_data,count);
+*/	int i=0;
+	char * pt;
+	printk(KERN_INFO "En read call flip-private->\n");
+	pt = flip->private_data;
+	
+	for(i=0;i<TMPSIZE;i++){
+		printk(KERN_INFO "%c",pt[i]);
+	}
+	printk(KERN_INFO "\n");
+
+	copy_from_user(buf,flip->private_data+*offset,count);
+
+	printk(KERN_INFO "En read call buf->\n");
+	for(i=0;i<TMPSIZE;i++){
+		printk(KERN_INFO "%c",buf[i]);
+	}
+	printk(KERN_INFO "\n");
+	*offset =+count;
 	return count;
+	
 }
 
 static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t count ,loff_t * offset){
@@ -321,9 +343,30 @@ static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t c
 	atomic_set(counter, simple_strtol(tmp,NULL,10));//Convierte la string en un unsigned long y se la pasa al contador, funcion obsoleta(puntero de la cadena inicial, puntero al final de la cadena, base para la conversion)
 	return count;
 */
-	copy_from_user(flip->private_data,buf,count);
+	int i=0;
+	char * pt;
+	char tmp[TMPSIZE];
+	copy_from_user(tmp,buf,count);
+	for(i=0;i<TMPSIZE;i++){
+		printk(KERN_INFO "%c",tmp[i]);
+	}
+	printk(KERN_INFO "\n");
+	
+	flip->private_data = tmp;
+
+	pt = flip->private_data;
+
+	for(i=0;i<TMPSIZE;i++){
+		printk(KERN_INFO "%c",pt[i]);
+	}
+	printk(KERN_INFO "\n");
+
 	return count;
 
+}
+/*itera sobre la cadena para saber si todos los caracteres que la componen son numeros*/
+int isANumber(char * cadena){
+	return FALSE;
 }
 
 static int __init assoofs_init(void){

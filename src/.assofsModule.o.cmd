@@ -718,6 +718,15 @@ deps_/home/manuel/sistemaficheros/src/assofsModule.o := \
     $(wildcard include/config/debug/rodata/test.h) \
   include/asm-generic/cacheflush.h \
   include/linux/hugetlb_inline.h \
+  include/linux/slab.h \
+    $(wildcard include/config/slab/debug.h) \
+    $(wildcard include/config/failslab.h) \
+    $(wildcard include/config/memcg/kmem.h) \
+    $(wildcard include/config/slab.h) \
+    $(wildcard include/config/slub.h) \
+    $(wildcard include/config/slob.h) \
+  include/linux/kmemleak.h \
+    $(wildcard include/config/debug/kmemleak.h) \
 
 /home/manuel/sistemaficheros/src/assofsModule.o: $(deps_/home/manuel/sistemaficheros/src/assofsModule.o)
 
