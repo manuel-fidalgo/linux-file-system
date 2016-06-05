@@ -9,24 +9,23 @@
 
 #define NAME "assoofs"
 
-#define LFS_MAGIC 0x19980122 //Necesary or include in the library ?
-#define TMPSIZE 20
+#define LFS_MAGIC 0x19980122 
+#define TMPSIZE 100
 
 #define DEF_PER_FILE 0644
 #define DEF_PER_DIR 0755
-
 #define OK 0
-#define FATAL_ERROR -1
-#define FALSE 0
-#define TRUE 1
+/********************************************************************************************************************************************************
+ * IMPORTANTE, ESTE FLAG INDICA EL MODO DE SISTEMA QUE SE EJECUTARA, SI ESTA A 0 FUNCIONARA COMO FICHEROS CON TEXTO, SI ESTA A 1 COMO FICHEROS CONTADOR *
+ ********************************************************************************************************************************************************/
+#define COUNT_MODE 0
 
 
-/**
-funciones que empieizen pir assofs hay que implenetarlo nosotros
-*/
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Manuel Fidalgo Fierro");
-static atomic_t counter_1, counter_2;
+
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Manuel Fidalgo Fierro");
+/*Contadores para los dos ficheros originales*/
+ static atomic_t counter_1, counter_2;
 
 
  /*HEADERS*/
@@ -47,17 +46,17 @@ static atomic_t counter_1, counter_2;
  static struct dentry * assoofs_lookup(struct inode *parent_inode, struct dentry *child_dentry, unsigned int flags);
  static int assoofs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode);
  static int assoofs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl);
- int isANumber(char * cadena);
+
 
 
 
  /*Define el typo de sistema que hemos creado, tipo nombre y funciones que se llaman al montar y desmontar*/
-static struct file_system_type assoofs_type = {
+ static struct file_system_type assoofs_type = {
 
  	.owner = THIS_MODULE,
  	.name = NAME,
-	.mount = assoofs_get_super, //fuinioc que se llama al monstar
-	.kill_sb = kill_litter_super, //fucnion que se llama al demontar
+	.mount = assoofs_get_super, //Funcion para montar el sistema
+	.kill_sb = kill_litter_super, 
 	
 };
 
@@ -77,6 +76,7 @@ static struct file_operations assoofs_file_ops = {
 	.write = assoofs_write_file,
 
 };
+
 /*Struct para las operaciones con inodos*/
 static struct inode_operations assoofs_inode_ops = {
 
@@ -106,12 +106,12 @@ static int assoofs_fill_super(struct super_block *sb, void * data, int silent){
 	sb->s_blocksize = PAGE_CACHE_SIZE;
 	sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
 	sb->s_magic = LFS_MAGIC; //Numero magico
-	sb->s_op = &assoofs_s_ops; //definimos la estructura con todas las operaciones que soporte el sistema de ficheros/*crear el root haciendo que el campo root del superbloque*///lalamas a la funcion create files pasandole el puntero raiz y el superbloque
+	sb->s_op = &assoofs_s_ops; //Operacioes que soporta el super
 	
 	root_inode = assoofs_make_inode(sb,S_IFDIR | DEF_PER_DIR );
 
-	root_inode->i_op = &assoofs_inode_ops; 	//Cmabiamos las operaciones por defecto del inodo para las partes opcionales
-	root_inode->i_fop = &simple_dir_operations;
+	root_inode->i_op = &assoofs_inode_ops; 	//Cambiamos las operaciones por defecto del inodo para las partes opcionales
+	root_inode->i_fop = &simple_dir_operations; 
 
 	root_dentry = d_make_root(root_inode);
 	
@@ -119,7 +119,7 @@ static int assoofs_fill_super(struct super_block *sb, void * data, int silent){
 
 	assoofs_create_files(sb,root_dentry);
 
-		
+
 	return OK;
 }
 
@@ -132,8 +132,8 @@ static int assoofs_create_files(struct super_block *sb, struct dentry * root){
 
 	dir = assoofs_create_directory(sb,root,"directory_0");
 
-	atomic_set(&counter_2,0); //inicializa el contador a cero
-	assoofs_create_file(sb,dir,"counter_2",&counter_2);/*le pasamos como root del direotorio que hemos creado*/
+	atomic_set(&counter_2,0);
+	assoofs_create_file(sb,dir,"counter_2",&counter_2); //Le pasamos como root del direotorio que hemos creado
 
 	return OK;
 }
@@ -150,44 +150,24 @@ static struct dentry  assoofs_create_file(struct super_block *sb, struct dentry 
 
 	dentry = d_alloc(dir, &qname);
 
-	inode = assoofs_make_inode(sb, S_IFREG | DEF_PER_FILE );//flag que indica el tipo y los permisos por defecto, 
+	inode = assoofs_make_inode(sb, S_IFREG | DEF_PER_FILE );//Flag que indica el tipo y los permisos por defecto, 
 	
 	inode->i_fop = &assoofs_file_ops; //Operaciones que va a soportar
 	inode->i_private = counter; //campo donde se le asgina el contador, solo apra kernel 3.0 o superior cuidado con la informacion
 	
-	d_add(dentry,inode); //añadimos la estructura dentry y el dentry,ufs capa intermedia que abstrae(clase abstracta que luego referecnia a una clase real)
+	d_add(dentry,inode); //Llamada que asocia el dentry y en inodo 
 	
-	return *dentry; //devolvemos el struct dentry;
+	return *dentry; //devolvemos el struct dentry
 }
-
-/*
-La implementación de las funciones assoofs_mkdir y assoofs_create es muy similar a la de las funciones assoofs_create_file y assoofs_create_dir.
-Sólo que en este caso, solamente tenemos que crear el nuevo inodo y asignarle el contador. 
-La estructura dentry que necesitamos nos viene como argumento en la función y ya está inicializada.
-*/
-/*
-lookup: called when the VFS needs to look up an inode in a parent
-	directory. The name to look for is found in the dentry. This
-	method must call d_add() to insert the found inode into the
-	dentry. The "i_count" field in the inode structure should be
-	incremented. If the named inode does not exist a NULL inode
-	should be inserted into the dentry (this is called a negative
-	dentry). Returning an error code from this routine must only
-	be done on a real error, otherwise creating inodes with system
-	calls like create(2), mknod(2), mkdir(2) and so on will fail.
-	If you wish to overload the dentry methods then you should
-	initialise the "d_dop" field in the dentry; this is a pointer
-	to a struct "dentry_operations".
-	This method is called with the directory inode semaphore held
-*/
+/*Examina un fichero*/
 static struct dentry * assoofs_lookup(struct inode *parent_inode, struct dentry *child_dentry, unsigned int flags){
 
 	printk(KERN_INFO "assoofs_lookup\n");
 	return NULL;
 }
-
+/*Crea un directorio parametro dentry ya inicializado*/
 static int assoofs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode){
-	
+
 	struct inode * inode = assoofs_make_inode(dir->i_sb, S_IFDIR | DEF_PER_DIR);
 
 	inode->i_op = &assoofs_inode_ops;
@@ -199,16 +179,17 @@ static int assoofs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 	return OK;
 }
 
-atomic_t cout; 	/*La declaramos como global?*/
+atomic_t cout; 	/*Contador que van a usar todos los nuevos ficheros creados*/
+/*Crea un nuevo fichero*/
 static int assoofs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl){
-	
+
 	struct inode * inode;
 
 	atomic_set(&cout,0);
 	inode = assoofs_make_inode(dir->i_sb,mode);
-	
+
 	inode->i_fop = &assoofs_file_ops; //Operaciones que va a soportar
-	inode->i_private = &cout; //habria que añadirle el contador, que ni idea de donde lo voy a sacar...
+	inode->i_private = &cout; //Aganade un contador global
 
 	d_add(dentry,inode);
 
@@ -239,7 +220,6 @@ static struct dentry * assoofs_create_directory(struct super_block *sb, struct d
 	return dentry;
 }
 
-
 /*Funcion ara crear inodo, declaramos el nuevo inode e iniciamlizamos los valores*/
 static struct inode * assoofs_make_inode(struct super_block * sb, int mode){
 	struct inode * ret;
@@ -259,113 +239,119 @@ static int assoofs_open(struct inode * inode, struct file *flip){
 	return 0;
 }
 
-/*Letura de un fichero*//*se ejecuta como bucle ??*/
+/*Letura de un fichero*//*param: fichero, un buffer en espacio de usuario, el contador de bytes que se piden y el punto desde donde*/
 static int assoofs_read_file(struct file * flip, char * buf, size_t count, loff_t * offset){
 
-/*
-	atomic_t * counter;			//Contador
-	int len, v;	
-	char tmp[TMPSIZE];	
-	
-	counter = (atomic_t *) flip->private_data;
-	v = atomic_read(counter);
-	
-	if(*offset>0){
-		printk(KERN_INFO "offset>0, v=-1\n");
-		v-= 1; //valor que se devolvera si el offset es cero
+	if(COUNT_MODE){
+		atomic_t * counter;			//Contador
+		int len, v;	
+		char tmp[TMPSIZE];	
+		
+		counter = (atomic_t *) flip->private_data;
+		v = atomic_read(counter);
+		
+		if(*offset>0){
+			printk(KERN_INFO "offset>0, v=-1\n");
+			v-= 1; //valor que se devolvera si el offset es cero
+		}else{
+			atomic_inc(counter);
+		}
+
+		len = snprintf(tmp,TMPSIZE,"%d\n",v); //convierte el numero a cadena(buffer de vuelta, maximos bytes del buffer y formato)
+		if(*offset > len){
+			printk(KERN_INFO "*offset > len, returned OK\n");
+			return OK;
+		}
+		if(count> len -* offset){
+			printk(KERN_INFO "count> len -* offset, count = len - *offset\n");
+			count = len - *offset;
+		}
+		/*Copia a buf(Espacio de usuario), lo que hay en tmp(espacio de kernel),tantos bytes como el ultimo parametro indique*/
+		if(copy_to_user(buf,tmp + *offset, count))
+			return -EFAULT;		
+		*offset += count;
+		return count;
+
 	}else{
-		atomic_inc(counter);
+
+		int i;
+		char tmp[TMPSIZE];
+		char * pt;
+		int len = TMPSIZE; //Tamaño de lo que hay contenido en el buffer
+		
+		if(*offset > len){
+			printk(KERN_INFO "*offset > len, returned OK\n");
+			return OK;
+		}
+		if(count > len -* offset){
+			printk(KERN_INFO "count> len -* offset, count = len - *offset\n");
+			count = len - *offset;
+		}
+		pt = flip->private_data;
+		printk(KERN_INFO "llamda a fileread\n");
+		for(i=0; i< TMPSIZE; i++){
+			tmp[i] = pt[i];
+		}
+		printk(KERN_INFO "Mensaje en tmp -> %s",tmp);
+		copy_to_user(buf,tmp+*offset,count);
+		printk(KERN_INFO "Mensaje en buf -> %s",tmp);
+		*offset+=count;
+		return count;
 	}
 
-	len = snprintf(tmp,TMPSIZE,"%d\n",v); //convierte el numero a cadena(buffer de vuelta, maximos bytes del buffer y formato)
-	
-	if(*offset > len){
-		printk(KERN_INFO "*offset > len, returned OK\n");
-		return OK;
-	}
-
-	if(count> len -* offset){
-		printk(KERN_INFO "count> len -* offset, count = len - *offset\n");
-		count = len - *offset;
-	}
-	
-	if(copy_to_user(buf,tmp + *offset, count)) //copia a buf lo que hay en tmp + offset, tantos bytes como el parametro count indique. tmp en espacio de kernel y buf en espacio de usuario
-		return -EFAULT;
-	
-	*offset += count;
-	return count;
-*/	int i;
-	char tmp[TMPSIZE];
-	char * pt;
-	int len = TMPSIZE; //tamaño de lo que hay cntendio en el buffer
-
-	if(*offset > len){
-		printk(KERN_INFO "*offset > len, returned OK\n");
-		return OK;
-	}
-
-	if(count > len -* offset){
-		printk(KERN_INFO "count> len -* offset, count = len - *offset\n");
-		count = len - *offset;
-	}
-
-	pt = flip->private_data;
-	printk(KERN_INFO "llamda a fileread\n");
-
-	for(i=0; i< TMPSIZE; i++){
-		tmp[i] = pt[i];
-	}
-
-	printk(KERN_INFO "Mensaje en tmp -> %s",tmp);
-
-	copy_to_user(buf,tmp+*offset,count);
-
-	printk(KERN_INFO "Mensaje en buf -> %s",tmp);
-	*offset+=count;
-	return count;
-	
 }
 
 static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t count ,loff_t * offset){
 	
-/*
-	atomic_t * counter;
-	char tmp[TMPSIZE];
+	if(COUNT_MODE){
+		atomic_t * counter;
+		char tmp[TMPSIZE];
+		//printk(KERN_INFO "assoofs_write_file buf->%s, cout->%d offset->%d\n",buf,count,(int)*offset);
+		counter = (atomic_t *) flip->private_data;
+		if(*offset!=0){
+			printk(KERN_INFO "offset!=0, returned -EINVAL\n");
+			return -EINVAL;
+		}
+		if(count >= TMPSIZE){
+			printk(KERN_INFO "count >= TMPSIZE, returned -EINVAL\n");
+			return -EINVAL;
+		}
+		memset(tmp,0,TMPSIZE); //Rellena tmp con ceros
+		if(copy_from_user(tmp,buf,count)) //Copia a tmp(kernel) lo que hay en buf(usuario)
+			return -EFAULT;
+		/*Pasa lo que hay en tmp a unsigned long, funcion obsoleta segun la API kernel param: buffer, fin del buffer, base de la conversion*/
+		atomic_set(counter, simple_strtol(tmp,NULL,10));
+		return count;
+	}else{
 
-	printk(KERN_INFO "assoofs_write_file buf->%s, cout->%d offset->%d\n",buf,count,(int)*offset);
+		int i;
+		int acum=0;
+		char tmp[TMPSIZE];
+		char * pt;
 
-	counter = (atomic_t *) flip->private_data;
-
-	if(*offset!=0){
-		printk(KERN_INFO "offset!=0, returned -EINVAL\n");
-		return -EINVAL;
+		pt = (char *)flip->private_data;
+		memset(tmp,0,TMPSIZE);
+		printk(KERN_INFO "tmp->%s",tmp);
+		copy_from_user(tmp,buf,count);
+		for(i=0; i<TMPSIZE;i++){
+			acum++;
+			if(tmp[i]=='\0'){
+				break;
+			}
+		}
+		printk(KERN_INFO "tmp->%s, size->%d",tmp,acum);
+		for(i=0; i<TMPSIZE;i++){
+			pt[i] = tmp[i];
+		}
+		return count;
 	}
-	if(count >= TMPSIZE){
-		printk(KERN_INFO "count >= TMPSIZE, returned -EINVAL\n");
-		return -EINVAL;
-	}
-
-	memset(tmp,0,TMPSIZE); //copia desde caracter cero en los TMPSIZE primeros caracters apuntador por tmp
-
-	if(copy_from_user(tmp,buf,count)) //copia buf de que esta a en epacion de usuario a tp que esta en espacio de kernel
-		return -EFAULT;
-
-	atomic_set(counter, simple_strtol(tmp,NULL,10));//Convierte la string en un unsigned long y se la pasa al contador, funcion obsoleta(puntero de la cadena inicial, puntero al final de la cadena, base para la conversion)
-	return count;
-*/
-	copy_from_user(flip->private_data,buf,count);
-	return count;
-
 }
-/*itera sobre la cadena para saber si todos los caracteres que la componen son numeros*/
-int isANumber(char * cadena){
-	return FALSE;
-}
+
 
 static int __init assoofs_init(void){
 
 	printk(KERN_INFO "insertado modulo asssofs \n");
-    return register_filesystem(&assoofs_type); /*Direcion de memoria de una estructura*/
+    return register_filesystem(&assoofs_type); /*Direcion de memoria del tipo de estructura*/
 }
 
 static void __exit cleanup_assoofs(void){
