@@ -5,12 +5,12 @@
 #include <linux/fs.h>        /* libfs stuff *//*the most important library, dentry inode file belongs to here*/
 #include <asm/atomic.h>      /* atomic_t stuff */
 #include <asm/uaccess.h>     /* copy_to_user */
-#include <linux/slab.h>
+#include <linux/slab.h>		 /*for allocating memory with kmallo(size,flag);*/
 
 #define NAME "assoofs"
 
 #define LFS_MAGIC 0x19980122 	//Magic number
-#define TMPSIZE 100				//size of the text buffer
+#define TMPSIZE 100				//size of the text buffer.
 
 #define DEF_PER_FILE 0644	
 #define DEF_PER_DIR 0755
@@ -19,7 +19,7 @@
 /********************************************************************************************************************************************************
  * IMPORTANTE, ESTE FLAG INDICA EL MODO DE SISTEMA QUE SE EJECUTARA, SI ESTA A 0 FUNCIONARA COMO FICHEROS CON TEXTO, SI ESTA A 1 COMO FICHEROS CONTADOR *
  ********************************************************************************************************************************************************/
-#define COUNT_MODE 0
+#define COUNT_MODE 1
 /**************************************************************************************************************************************************
  * IMPORTANT, THIS FLAG DETERMINES THE MODE OF THE SYSTEM, IF THE VALUE IS 0 IT WILL BE A TEXT VFS, OTHERWISE WILL BE A  VFS COMPOSED BY COUNTERS *
  **************************************************************************************************************************************************/
@@ -129,7 +129,7 @@ static int assoofs_create_files(struct super_block *sb, struct dentry * root){
 	struct dentry * dir;
 
 	atomic_set(&counter_1,0); //init the first counter
-	assoofs_create_file(sb,root,"counter_1",&counter_1); // A different couter for each default files
+	assoofs_create_file(sb,root,"counter_1",&counter_1); // A different counter for each default files
 
 	dir = assoofs_create_directory(sb,root,"directory_0");
 
@@ -158,6 +158,7 @@ static struct dentry  assoofs_create_file(struct super_block *sb, struct dentry 
 		inode->i_private = counter; //Counter
 	}else{
 		inode->i_private = (char *)kmalloc(TMPSIZE*sizeof(char),GFP_KERNEL); //A memory space for each file
+		memset(inode->i_private,0,TMPSIZE*sizeof(char));					 //Inits this memory block
 	}
 	
 	
@@ -200,6 +201,7 @@ static int assoofs_create(struct inode *dir, struct dentry *dentry, umode_t mode
 		inode->i_private = &cout; //global counter for al the new files
 	}else{
 		inode->i_private = (char *)kmalloc(TMPSIZE*sizeof(char),GFP_KERNEL); //memory segment for each file
+		memset(inode->i_private,0,TMPSIZE*sizeof(char));
 	}
 
 	d_add(dentry,inode);
