@@ -154,7 +154,12 @@ static struct dentry  assoofs_create_file(struct super_block *sb, struct dentry 
 	inode = assoofs_make_inode(sb, S_IFREG | DEF_PER_FILE );//Flag with de default permissions 
 	
 	inode->i_fop = &assoofs_file_ops; //file operations
-	inode->i_private = counter; //Counter
+	if(COUNT_MODE){
+		inode->i_private = counter; //Counter
+	}else{
+		inode->i_private = (char *)kmalloc(TMPSIZE*sizeof(char),GFP_KERNEL); //A memory space for each file
+	}
+	
 	
 	d_add(dentry,inode); //associates dentry and inode
 	
@@ -190,7 +195,12 @@ static int assoofs_create(struct inode *dir, struct dentry *dentry, umode_t mode
 	inode = assoofs_make_inode(dir->i_sb,mode);
 
 	inode->i_fop = &assoofs_file_ops; //Operations suported
-	inode->i_private = &cout; //global counter for al the new files
+
+	if(COUNT_MODE){
+		inode->i_private = &cout; //global counter for al the new files
+	}else{
+		inode->i_private = (char *)kmalloc(TMPSIZE*sizeof(char),GFP_KERNEL); //memory segment for each file
+	}
 
 	d_add(dentry,inode);
 
@@ -330,13 +340,13 @@ static ssize_t assoofs_write_file(struct file * flip, const char * buf, size_t c
 		char tmp[TMPSIZE];
 		char * pt;
 
-		pt = (char *)flip->private_data;
+		pt = flip->private_data;
 		memset(tmp,0,TMPSIZE);
 		printk(KERN_INFO "tmp->%s",tmp);
 		copy_from_user(tmp,buf,count);
 		for(i=0; i<TMPSIZE;i++){
 			acum++;
-			if(tmp[i]=='\0'){
+			if(tmp[i]=='\0'){	//This copies the string until the endstring character, if the string length is > TMPSIZE could produce a bug
 				break;
 			}
 		}
